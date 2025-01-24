@@ -1,5 +1,7 @@
 package com.learn.demoauthcourse.security;
 
+import com.learn.demoauthcourse.security.jwt.AuthEntryPointJwt;
+import com.learn.demoauthcourse.security.jwt.AuthTokenFilter;
 import com.learn.demoauthcourse.security.services.UserDetailsServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -26,6 +28,9 @@ public class WebSecurityConfig {
     @Autowired
     UserDetailsServiceImpl userDetailsService;
 
+    @Autowired
+    private AuthEntryPointJwt unauthorizedHandler;
+
     // défini le hasher de psw par défaut.
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -51,6 +56,11 @@ public class WebSecurityConfig {
         return authConfig.getAuthenticationManager();
     }
 
+    @Bean
+    public AuthTokenFilter authenticationJwtTokenFilter() {
+        return new AuthTokenFilter();
+    }
+
     // on désactive les tokens CSRF
     // indique comment les CORS sont gérés
     // La politique de session
@@ -58,12 +68,16 @@ public class WebSecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
+                .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth ->
                         auth.requestMatchers("/api/auth/**").permitAll()
+                                .requestMatchers("/api/test/**").permitAll()
+                                .anyRequest().authenticated()
                 );
 
         http.authenticationProvider(authenticationProvider());
+        http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
